@@ -1,0 +1,175 @@
+;;;;ATTENTION : PAS TRAITE !!!
+if(!$disc2 || $last_pos_in_scenario_internal ) {$date_start_segment_in_memory := -$date_start_segment_in_memory}
+
+
+
+
+
+
+::StartRenderEvent($VoiceName, $TimeMaster, $pulsed, $date_start_segment_in_memory, $date_end_segment_in_memory, $transpo, $play_pos, $sync_variable.tempo, $activevoice, $inactivevoice, $delay, $time_shift)
+
+
+; GLOBAL, AVANT DEF DE LA PROC
+
+@tempovar $timesource_master(60,1)
+$tempovar_timesource_master := 60
+whenever ($tempovar_pos_in_scenario)
+{
+	let $timesource_master.tempo := $tempovar_pos_in_scenario
+	printAnte global "$timesource_master.tempo = " ($pos_in_scenario.tempo)
+}
+
+$duration_current_master_event := 0
+
+$new_event_in_master_voice := -1
+whenever ($new_event_in_master_voice == $new_event_in_master_voice)
+	{
+		$timesource_master := $new_event_in_master_voice
+
+	}
+
+
+; PLUS HAUT : DEF DE LA PROC
+@proc_def ::StartRenderEvent($VoiceName, $TimeMaster, $pulsed, $date_start_segment_in_memory, $date_end_segment_in_memory, $transpo, $position, $tempo, $activevoice, $inactivevoice, $audio_latency, $time_shift) 
+	{
+
+		@local $beatduration_in_memory, $speedratio
+		@local $graincurvesduration_frac_beat, $graincurvesduration_in_memory, $Xfade_frac_beat, $Xfadeduration_in_memory, $date_end_Xfade_in_memory
+		@local $voice, $output_audio
+		@local $start_pos
+
+		AnteToSVP $VoiceName transpo $transpo 
+
+		;Current beat durations values
+		$beatduration_in_memory := ($date_end_segment_in_memory - $date_start_segment_in_memory)
+			if ($TimeMaster)
+			{
+				if($pulsed)
+					{
+						$duration_current_master_event := 60000/$tempo
+					}
+				else {$duration_current_master_event := $beatduration_in_memory}
+			}
+			;faire un else pour temporalités multiples
+
+		$speedratio := $beatduration_in_memory / $duration_current_master_event
+		
+
+		;Equivalent durations current tempo / tempo in the memory for Xfade
+		$Xfade_frac_beat := ($Xfadeduration / $duration_current_master_event)
+		$Xfadeduration_in_memory := (($Xfadeduration / $duration_current_master_event)*$beatduration_in_memory)
+		$date_end_Xfade_in_memory := $date_end_segment_in_memory + $Xfadeduration_in_memory
+		
+		$voice := $activevoice							
+		AnteToSVP $VoiceName output_audio 1
+		AnteToSVP $VoiceName transpo $voice $transpo  
+		
+		$start_pos := $date_start_segment_in_memory + $audio_latency - $time_shift
+		AnteToSVP $VoiceName beatScrubPos $voice $start_pos $speedratio ; new mode
+		printAnte $VoiceName "AT " ($NOW*1000)  "ms, SENT TO PLAYER:" $voice $date_start_segment_in_memory $speedratio "beatduration:" $duration_current_master_event "nextbeatat?" (($NOW*1000)+$duration_current_master_event)
+		;idx-in-memory-ratio $VoiceName $idx_start_play_in_memory_local $date_start_segment_in_memory $speedratio
+
+		if (!$pulsed && $TimeMaster)
+		{ 
+			($duration_current_master_event+$time_shift)ms $signal_new_position := $position + 1
+		}
+							
+}
+
+
+
+@proc_def ::UpdateSpeedRendering($VoiceName, $TimeMaster, $pulsed, $date_start_segment_in_memory, $date_end_segment_in_memory, $position, $tempo, $activevoice, $inactivevoice, $audio_latency, $time_shift) 
+	{
+
+		@local $beatduration_in_memory, $speedratio
+		@local $graincurvesduration_frac_beat, $graincurvesduration_in_memory, $Xfade_frac_beat, $Xfadeduration_in_memory, $date_end_Xfade_in_memory
+		@local $voice, $output_audio
+		@local $start_pos
+
+		;AnteToSVP $VoiceName transpo $transpo 
+
+		;Current beat durations values
+		$beatduration_in_memory := ($date_end_segment_in_memory - $date_start_segment_in_memory)
+			if ($TimeMaster)
+			{
+				if($pulsed)
+					{
+						$duration_current_master_event := 60000/$tempo
+					}
+				else {$duration_current_master_event := $beatduration_in_memory}
+			}
+			;faire un else pour temporalités multiples
+
+		$speedratio := $beatduration_in_memory / $duration_current_master_event
+
+		;Equivalent durations current tempo / tempo in the memory for Xfade
+		$Xfade_frac_beat := ($Xfadeduration / $duration_current_master_event)
+		$Xfadeduration_in_memory := (($Xfadeduration / $duration_current_master_event)*$beatduration_in_memory)
+		$date_end_Xfade_in_memory := $date_end_segment_in_memory + $Xfadeduration_in_memory
+		
+		$voice := $activevoice							
+		;AnteToSVP $VoiceName output_audio 1
+		;AnteToSVP $VoiceName transpo $voice $transpo  
+		
+		;$start_pos := $date_start_segment_in_memory + $audio_latency - $time_shift
+		AnteToSVP $VoiceName beatScrubPos $voice (-1) $speedratio ; new mode
+		printAnte $VoiceName "AT " ($NOW*1000)  "ms, SENT TO PLAYER:" $voice "JUST change speed:" $speedratio  "nextbeatat?" (($NOW*1000)+$duration_current_master_event)
+		;idx-in-memory-ratio $VoiceName $idx_start_play_in_memory_local $date_start_segment_in_memory $speedratio
+
+		if (!$pulsed && $TimeMaster)
+		{ 
+			($duration_current_master_event+$time_shift)ms $signal_new_position := $position + 1
+		}
+							
+}
+
+
+whenever($signal_new_position == $signal_new_position ) 
+{
+	$local $LoopBeat, $relative_count_loop_whenever, $first_iteration_loop
+
+	$Loopbeat := 0
+	$relative_count_loop_whenever := 0
+	$first_iteration_loop := 1
+
+	$sync_variable := $signal_new_position
+
+	if (!$pulsed)
+	{
+		$play_pos := $sync_variable 	
+	}
+	else
+	{
+		$relative_count_loop_whenever := @max(0,($relative_count_loop_whenever - 1))
+		if($relative_count_loop_whenever == 0)
+		{
+			abort $Loopbeat
+			$first_iteration_loop := 1
+			$Loopbeat :=
+			{
+				loop 1 @sync $sync_variable @target[3s] @conservative
+				{
+					if ($first_iteration_loop)
+					{
+						$play_pos := $sync_variable
+					}
+					else
+					{
+						$relative_count_loop_whenever := $relative_count_loop_whenever + 1
+						$play_pos := $play_pos + 1
+					}
+					$first_iteration_loop := 0
+				}
+
+			}
+		}
+
+	}
+
+}
+
+
+
+
+
+

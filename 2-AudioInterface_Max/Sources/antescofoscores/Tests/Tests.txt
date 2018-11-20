@@ -1,0 +1,32 @@
+/*
+$testTAB := tab[0,1,2,3]
+$testMAP := MAP{}
+$testMAP := @add_pair($testMAP,0, "label")
+$testMAP := @add_pair($testMAP,1, $testTAB)
+
+;MAP DEFINED
+$var0 := $testMAP(0)
+printAnte "$var0 = $testMAP(0) = " $var0 ", @is_undef($var0) = " (@is_undef($var0)) ", @is_defined($testMAP,0) = " (@is_defined($testMAP,0))
+$var1 := $testMAP(1)
+printAnte "$var1 = $testMAP(1) = " $var1 ", @is_undef($var1) = " (@is_undef($var1)) ", @is_defined($testMAP,1) = " (@is_defined($testMAP,1))
+
+if ((@is_undef($var1))) {printAnte "undef : true"} else {printAnte "undef : false"} 
+
+;MAP UNDEFINED
+$var2 := $testMAP(2)
+printAnte "$var2 = $testMAP(2) = " $var2 ", @is_undef($var2) = " (@is_undef($var2)) ", @is_defined($testMAP,2) = " (@is_defined($testMAP,2))
+
+;MAP DEFINED
+$var0 := $testTAB[0]
+printAnte "$var0 = $testTAB[0] = " $var0 ", @is_undef($var0) = " (@is_undef($var0)) ", @is_defined($testTAB,0) = " (@is_defined($testTAB,0))
+;MAP UNDEFINED
+$var2 := $testMAP[2]
+printAnte "$var2 = $testTAB[2] = " $var2 ", @is_undef($var2) = " (@is_undef($var2)) ", @is_defined($testTAB,2) = " (@is_defined($testTAB,2))
+
+$testTAB := tab[1,2,3]
+printAnte (""+$testTAB)
+
+printAnte (@is_undef($testTAB))
+if ((@is_undef($testTAB))) {printAnte "undef : true"} else {printAnte "undef : false"} 
+*/
+

@@ -1,0 +1,1118 @@
+printAnte "030616" 
+
+/*
+$testTAB := tab[0,1,2,3]
+$testMAP := MAP{}
+$testMAP := @add_pair($testMAP,0, "label")
+$testMAP := @add_pair($testMAP,1, $testTAB)
+
+;MAP DEFINED
+$var0 := $testMAP(0)
+printAnte "$var0 = $testMAP(0) = " $var0 ", @is_undef($var0) = " (@is_undef($var0)) ", @is_defined($testMAP,0) = " (@is_defined($testMAP,0))
+$var1 := $testMAP(1)
+printAnte "$var1 = $testMAP(1) = " $var1 ", @is_undef($var1) = " (@is_undef($var1)) ", @is_defined($testMAP,1) = " (@is_defined($testMAP,1))
+
+if ((@is_undef($var1))) {printAnte "undef : true"} else {printAnte "undef : false"} 
+
+;MAP UNDEFINED
+$var2 := $testMAP(2)
+printAnte "$var2 = $testMAP(2) = " $var2 ", @is_undef($var2) = " (@is_undef($var2)) ", @is_defined($testMAP,2) = " (@is_defined($testMAP,2))
+
+;MAP DEFINED
+$var0 := $testTAB[0]
+printAnte "$var0 = $testTAB[0] = " $var0 ", @is_undef($var0) = " (@is_undef($var0)) ", @is_defined($testTAB,0) = " (@is_defined($testTAB,0))
+;MAP UNDEFINED
+$var2 := $testMAP[2]
+printAnte "$var2 = $testTAB[2] = " $var2 ", @is_undef($var2) = " (@is_undef($var2)) ", @is_defined($testTAB,2) = " (@is_defined($testTAB,2))
+
+$testTAB := tab[1,2,3]
+printAnte (""+$testTAB)
+
+printAnte (@is_undef($testTAB))
+if ((@is_undef($testTAB))) {printAnte "undef : true"} else {printAnte "undef : false"} 
+*/
+
+
+
+;==================================================================================================================
+;==================================================================================================================
+; PARTIE 1 : VARIABLE PROPRES A CHAQUE IMPRO
+; Scénario de l'improvisation en cours pour segmentation et annotation, Séquence à jouer produite par navigation...
+; Remplir ces variables par "setvar" dans max, ou par osc venant d'OM, dynamiquement ou non
+;==================================================================================================================
+;==================================================================================================================
+
+$printsvpinstructions := 0
+$printimproinfo := 1
+
+;if ($printsvpinstructions) {} 
+;if ($printimproinfo) {} 
+
+$play := 0
+$graincurvesduration := 50
+$Xfadeduration := 200
+$delay_online := 470
+$delay_offline := 0
+
+;------------------------------------------------------------------
+; CONSTRUIRE LES SEQUENCES (SCENARIOS, SUITE D'INDICES A JOUER DE L'IMPRO) DEPUIS MAX
+;----------------------
+$online_memory := MAP{}
+
+$Scenario := MAP{}
+$SequenceImpro := MAP{}
+$SequenceImpro1 := MAP{}
+$SequenceImpro2 := MAP{}
+$SequenceImpro3 := MAP{} ; Chaque segment : tab [indice à jouer, transposition à appliquer]
+$length_scenario := 0
+$last_length_scenario := 0
+
+whenever ($length_scenario)
+{
+	@local $cpt
+	
+	$last_length_scenario := $length_scenario
+
+	$cpt := 0
+	loop BuildSequences 0
+		{
+			;SEQUENCE IMPRO PAR DEFAUT
+			$SequenceImpro := @add_pair($SequenceImpro,$cpt, tab[($cpt - 4),0])
+			$SequenceImpro1 := @add_pair($SequenceImpro1,$cpt, tab[($cpt - 4),0])
+			$SequenceImpro2 := @add_pair($SequenceImpro2,$cpt, tab[($cpt - 4),0])
+			$SequenceImpro3 := @add_pair($SequenceImpro3,$cpt, tab[($cpt - 4),0])
+
+			;SCENARIO PAR DEFAUT
+			$Scenario := @add_pair($Scenario,$cpt, "label")
+
+			$cpt := $cpt + 1
+		} until ( $cpt >= $length_scenario)
+
+ 
+	if ($printimproinfo) 
+		{
+			printAnte "______Sequences built for the 1st time______"
+			printAnte "$Scenario :" $Scenario 
+			printAnte "$SequenceImpro :" $SequenceImpro
+		}
+
+}
+
+
+
+
+
+;==================================================================================================================
+;==================================================================================================================
+; PARTIE 2 : GENERIQUE, FIXE
+; Définition des processus d'écoute / réaction, segmentation,... communes à toutes les improvisations
+;==================================================================================================================
+;==================================================================================================================
+; Tempo for memory annotation & segmentation
+@tempovar $pos_in_scenario(120,1)
+$tempovar_pos_in_scenario := 120
+whenever ($tempovar_pos_in_scenario)
+{
+	let $pos_in_scenario.tempo := $tempovar_pos_in_scenario
+	;printAnte "$pos_in_scenario.tempo = " ($pos_in_scenario.tempo)
+}
+
+; Local tempo (if manual acceleration...)
+@tempovar $pos_to_play(120,1)
+$tempovar_pos_to_play := 120
+whenever ($tempovar_pos_to_play)
+{
+	let $pos_to_play.tempo := $tempovar_pos_to_play
+	;printAnte "******************************  $pos_to_play.tempo = " ($pos_to_play.tempo) "******************************"
+}
+
+$mult_coeff_acc_tempo := 1
+whenever ($mult_coeff_acc_tempo)
+{
+	;let 
+	;$tempovar_pos_to_play := $mult_coeff_acc_tempo * ($pos_in_scenario.tempo)
+	let $pos_to_play.tempo := $mult_coeff_acc_tempo * ($pos_in_scenario.tempo)
+	$new_tempovar_pos_to_play := ($pos_to_play.tempo)
+	;printAnte "******************************  $pos_to_play.tempo = " ($pos_to_play.tempo) "******************************"
+}
+
+
+
+
+$pos_in_impro := -1
+@proc_def ::SetVoice($VoiceName, $InitSequenceImproOfVoice, $InitMemoryOfVoice) {
+
+
+
+@local $aux, $activevoice, $inactivevoice, $transpo, $lastbeataborted, $disc, $old_idx_in_memory, $old_transpo, $loop_inadvance_whenever
+@local $LoopBeat, $CurveBeat, $SequenceImproOfVoice, $MemoryOfVoice, $delay, $isfixed;, $position
+
+
+$SequenceImproOfVoice := $InitSequenceImproOfVoice
+$MemoryOfVoice := $InitMemoryOfVoice
+$delay := $delay_online
+$isfixed := 0
+
+/*
+$position := 0
+
+@tempovar $position(120,1)
+
+whenever ($tempovar_pos_in_scenario)
+{
+	if ($isfixed ) {let $position.tempo := $tempovar_pos_in_scenario}
+	;printAnte "$pos_in_scenario.tempo = " ($pos_in_scenario.tempo)
+}
+whenever ($new_tempovar_pos_to_play)
+{
+	if (!$isfixed ) {let $position.tempo := $new_tempovar_pos_to_play}
+	;printAnte "$pos_in_scenario.tempo = " ($pos_in_scenario.tempo)
+}
+
+
+whenever ($pos_in_scenario == $pos_in_scenario)	{
+			if ($isfixed ) {$position := $pos_in_scenario}
+		}
+whenever ($pos_to_play == $pos_to_play)	{
+			if (!$isfixed ) {$position := $pos_to_play}
+		}
+
+
+;whenever ($isfixed == $isfixed) {
+;	if ($isfixed == 0) {
+;	$whenever_pos_to_play := {
+;		whenever  ($pos_to_play == $pos_to_play)	{
+;			$position := $pos_to_play
+;		}
+;	}
+;	abort $whenever_pos_in_scenario
+;		
+;	} else {
+;	$whenever_pos_in_scenario := {
+;		whenever ($pos_in_scenario == $pos_in_scenario)	{
+;			$position := $pos_in_scenario
+;		}
+;	}
+;		abort $whenever_pos_to_play
+;	}
+;}
+*/
+
+;------------------------------------------------------------------
+; TRAITEMENT DES DISCONTINUITES AUDIO (Crossfade...)
+;----------------------
+$activevoice := 1
+$inactivevoice := 2
+;---
+whenever ($disc)
+{
+	printAnte " --------- disc = 1 ! ---------"
+
+	AnteToSVP $VoiceName disc $activevoice 0.0
+	AnteToSVP $VoiceName disc $inactivevoice 1.0
+
+	$aux := $activevoice 
+	$activevoice := $inactivevoice
+	$inactivevoice := $aux
+}
+;------------------------------------------------------------------
+
+
+
+
+;------------------------------------------------------------------
+; BOUCLE PRINCIPALE "DES QUE NOUVEAU TEMPS..."
+;----------------------
+;;;;;
+AnteToSVP $VoiceName output_audio 0
+;;;;;
+$transpo := 0
+$lastbeataborted := 1
+$disc := 0
+$old_idx_in_memory := -1
+$old_transpo := -1
+;;;;$pos_in_impro := -1     ; position dans l'impro courante
+;$pos_in_scenario := -2  ; position dans le scénario
+;(pas de relation explicite entre les 2 : on peut commencer en retard, recaler à la main...)
+$loop_inadvance_whenever := 0
+
+
+$pos_to_play := 0
+;$position := 0
+
+
+;---
+;whenever ($pos_in_scenario == $pos_in_scenario)
+whenever ($pos_to_play == $pos_to_play)
+;whenever ($position == $position)
+{
+	@local $impro_segment
+	@local $idx_to_play_in_memory
+	@local $next_loop_idx
+	;@local $position
+
+
+	printAnte " \n\n ******* $pos_in_scenario :" $pos_in_scenario " with tempo = " ($pos_in_scenario.tempo) "$pos_to_play :" $pos_to_play  " with tempo = " ($pos_to_play.tempo) "// $pos_in_impro :" $pos_in_impro " ******* "
+	
+	;;;;;;;
+	$impro_segment := $SequenceImproOfVoice($pos_to_play)
+	;$impro_segment := $SequenceImproOfVoice($pos_to_play)
+	$idx_to_play_in_memory := $impro_segment[0]
+	$transpo := $impro_segment[1]
+	;;;;;;;
+
+	$loop_inadvance_whenever := $loop_inadvance_whenever - 1
+	
+	$disc := ($first || $old_idx_in_memory != ($idx_to_play_in_memory-1) || $lastbeataborted || $old_transpo != $transpo)
+	printAnte "$idx_to_play_in_memory :" $idx_to_play_in_memory "($old_idx_in_memory :" $old_idx_in_memory ") -->  $disc =" $disc
+
+	idx_in_memory $VoiceName $idx_to_play_in_memory
+	
+	$old_idx_in_memory := $idx_to_play_in_memory
+	$old_transpo := $transpo
+
+
+	if (@is_undef($idx_to_play_in_memory)) {
+			;printAnte " --------- Impro not yet generated --> ABORT PREVIOUS LOOP  ---------"
+			;$loop_inadvance_whenever := $loop_inadvance_whenever - 1
+			;;;;;
+			AnteToSVP $VoiceName output_audio 0
+			;;;;;
+			;abort $LoopBeat
+			if (!(@is_undef($LoopBeat))) {abort $LoopBeat}
+			$lastbeataborted := 1
+
+		} else {
+			
+			
+			if(!$disc) 
+			{
+				;;printAnte " --------- (pas disc, on laisse les loops tranquilles...) ---------"	
+			} else { 
+			; Si saut dans la mémoire
+
+				if ($loop_inadvance_whenever > 0) 
+				{
+					;printAnte " --------- $loop_inadvance_whenever = " $loop_inadvance_whenever ", ABORT PREVIOUS LOOP ET CURVE QUI AVAIT ETE LANCEE JUSTE AVANT LA DISC! ---------"
+					;$loop_inadvance_whenever := $loop_inadvance_whenever - 1
+					;;;;;
+					AnteToSVP $VoiceName output_audio 0
+					;;;;;
+					;abort $LoopBeat; @NOREC 
+					if (!(@is_undef($LoopBeat))) {abort $LoopBeat}
+				} else 	{
+					;printAnte " --------- $loop_inadvance_whenever = " $loop_inadvance_whenever ", ABORT PREVIOUS LOOP MAIS PAS CURVE POUR CROSSFADE ---------"
+					;$loop_inadvance_whenever := $loop_inadvance_whenever - 1
+					;;;;;
+					;;;;;;;;; AnteToSVP $VoiceName output_audio 0 ;;;; ???????
+					;;;;;
+					;abort $LoopBeat @NOREC 
+					if (!(@is_undef($LoopBeat))) {abort $LoopBeat @NOREC}
+				}
+				
+				AnteToSVP $VoiceName transpo $transpo  ;-----------------------
+				;$idx_start_play_in_memory_local := $idx_to_play_in_memory
+				$next_loop_idx := $idx_to_play_in_memory
+				$first_execution_of_loop := 1
+				;printAnte " --------- NEW LOOP ---------";" $voice " ---------"
+				$LoopBeat := { 
+					;loop 1 @sync $pos_to_play @target[3s] @conservative {
+					loop 1 @sync $pos_to_play @target[3s] @conservative {
+
+
+					@local $start_segment_in_memory, $end_segment_in_memory, $testDEF, $date_start_segment_in_memory, $date_end_segment_in_memory, $beatduration_current, $beatduration_in_memory
+					@local $graincurvesduration_frac_beat, $graincurvesduration_in_memory, $Xfade_frac_beat, $Xfadeduration_in_memory, $date_end_Xfade_in_memory, $voice, $scrub_start_pos, $x
+					@local $idx_start_play_in_memory_local, $ratio
+
+					$idx_start_play_in_memory_local := $next_loop_idx
+					$loop_inadvance_whenever := $loop_inadvance_whenever + 1
+					$lastbeataborted := 0
+					
+					if(!$disc)
+					{
+						;printAnte " --------- CONTINUOUS : ABORT PREVIOUS CURVE POUR NE PAS FAIRE XFADE --------- "
+						;;;;;
+						AnteToSVP $VoiceName output_audio 0
+						;;;;;
+						; abort $CurveBeat ; removed gn160606
+					}
+
+					$start_segment_in_memory := $MemoryOfVoice($idx_start_play_in_memory_local)
+					$end_segment_in_memory := $MemoryOfVoice($idx_start_play_in_memory_local + 1)
+
+					$testDEF := (!(@is_undef($start_segment_in_memory)) && !(@is_undef($end_segment_in_memory)))
+
+					if ( !$testDEF )	
+						{
+							;printAnte " --------- This segment does not exist in the buffer  --> abort $LoopBeatLabelOOP --------- "
+							;;;;;
+							AnteToSVP $VoiceName output_audio 0
+							;;;;;
+							$lastbeataborted := 1
+							;abort $LoopBeat
+							if (!(@is_undef($LoopBeat))) {abort $LoopBeat}
+							 
+						} else {
+							;printAnte " --------- (the segment exists in the buffer...) --------- "
+
+							$date_start_segment_in_memory := $start_segment_in_memory[0]
+							$date_end_segment_in_memory := $end_segment_in_memory[0] -1	
+							
+							;Current beat durations values
+							$beatduration_current := 60000/($pos_to_play.tempo)
+							$beatduration_in_memory := ($date_end_segment_in_memory - $date_start_segment_in_memory)
+							$ratio :=  $beatduration_in_memory / $beatduration_current
+							
+							;Equivalent durations current tempo / tempo in the memory for Grain
+							$graincurvesduration_frac_beat := ($graincurvesduration/ $beatduration_current)
+							$graincurvesduration_in_memory := (($graincurvesduration / $beatduration_current)*$beatduration_in_memory)
+
+							;Equivalent durations current tempo / tempo in the memory for Xfade
+							$Xfade_frac_beat := ($Xfadeduration / $beatduration_current)
+							$Xfadeduration_in_memory := (($Xfadeduration / $beatduration_current)*$beatduration_in_memory)
+							$date_end_Xfade_in_memory := $date_end_segment_in_memory + $Xfadeduration_in_memory
+							
+							;Update voices and next idxs
+							$voice := $activevoice						
+							$next_loop_idx := $idx_start_play_in_memory_local + 1
+							
+							;printAnte " =========  PLAY FROM " $date_start_segment_in_memory "TO " $date_end_segment_in_memory "PLAYER" $voice " THEN Xfade ->" ($date_end_segment_in_memory + $Xfadeduration_in_memory) "========= "
+							$scrub_start_pos := $date_start_segment_in_memory
+
+							idx-in-memory-ratio $VoiceName $idx_start_play_in_memory_local $date_start_segment_in_memory $ratio
+							
+							AnteToSVP $VoiceName beatScrubPos $voice $date_start_segment_in_memory $ratio
+							;modif Gilbert
+
+							;;;;;
+							AnteToSVP $VoiceName output_audio 1
+							;;;;;
+							;curve C @sync $pos_in_scenario @target[3s] @conservative @Grain := 0.05s @Action := {group{AnteToSVP $VoiceName scrubPos $voice $x ;-----------------------
+							AnteToSVP $VoiceName transpo $voice $transpo  ;-----------------------
+							
+							; gn160606 remove curve
+							/*
+							$CurveBeat := { 
+								;curve C @sync $pos_to_play @target[3s] @conservative @Grain := ($graincurvesduration)ms @Action := {group {
+								curve C @sync $pos_to_play @target[3s] @conservative @Grain := ($graincurvesduration)ms @Action := {group {
+																							printAnte "[Debut iter curve], $scrub_start_pos = " $scrub_start_pos ", $x = " $x
+																							if ( $scrub_start_pos < $date_end_segment_in_memory )	
+																							{
+																								;printAnte "((voice " $voice "["$date_start_segment_in_memory "-> " $date_end_segment_in_memory"-> "($date_end_segment_in_memory + $Xfadeduration_in_memory)"]" " : PLAY, " $scrub_start_pos "-> " $x  " ))" 
+																							} else {
+																								;printAnte "((voice " $voice "["$date_start_segment_in_memory "-> " $date_end_segment_in_memory"-> "($date_end_segment_in_memory + $Xfadeduration_in_memory)"]" " : FADEOUT, " $scrub_start_pos "-> " $x  " ))"
+																							}
+																							AnteToSVP $VoiceName scrubPos $voice ($scrub_start_pos + $delay)
+																							AnteToSVP $VoiceName scrubPos $voice ($x + $delay) $graincurvesduration
+																							$scrub_start_pos := $x
+																							printAnte "[Fin iter curve], next-$scrub_start_pos = " $scrub_start_pos
+																						}
+																					} { $x {
+																							{($date_start_segment_in_memory + $graincurvesduration_in_memory)}
+																							1.0 {($date_end_segment_in_memory + $graincurvesduration_in_memory)}
+																							($Xfadeduration)ms {($date_end_segment_in_memory + $Xfadeduration_in_memory + $graincurvesduration_in_memory)}
+																							}
+																						}
+												};fin expr curve
+												*/
+					};fin else testdef
+				};fin loop			
+			};fin expr loop
+		};fin else disc
+	};fin else @is_undef($idx_to_play_in_memory)
+};fin else whenever $pos_in_scenario
+};fin procdef
+;------------------------------------------------------------------
+
+@proc_def ::SetFIXEDVoice($VoiceName, $InitSequenceImproOfVoice, $InitMemoryOfVoice) {
+
+
+
+@local $aux, $activevoice, $inactivevoice, $transpo, $lastbeataborted, $disc, $old_idx_in_memory, $old_transpo, $loop_inadvance_whenever
+@local $LoopBeat, $CurveBeat, $SequenceImproOfVoice, $MemoryOfVoice, $delay, $isfixed;, $position
+
+
+$SequenceImproOfVoice := $InitSequenceImproOfVoice
+$MemoryOfVoice := $InitMemoryOfVoice
+$delay := $delay_online
+$isfixed := 0
+
+/*
+$position := 0
+
+@tempovar $position(120,1)
+
+whenever ($tempovar_pos_in_scenario)
+{
+	if ($isfixed ) {let $position.tempo := $tempovar_pos_in_scenario}
+	;printAnte "$pos_in_scenario.tempo = " ($pos_in_scenario.tempo)
+}
+whenever ($new_tempovar_pos_to_play)
+{
+	if (!$isfixed ) {let $position.tempo := $new_tempovar_pos_to_play}
+	;printAnte "$pos_in_scenario.tempo = " ($pos_in_scenario.tempo)
+}
+
+
+whenever ($pos_in_scenario == $pos_in_scenario)	{
+			if ($isfixed ) {$position := $pos_in_scenario}
+		}
+whenever ($pos_to_play == $pos_to_play)	{
+			if (!$isfixed ) {$position := $pos_to_play}
+		}
+
+
+;whenever ($isfixed == $isfixed) {
+;	if ($isfixed == 0) {
+;	$whenever_pos_to_play := {
+;		whenever  ($pos_to_play == $pos_to_play)	{
+;			$position := $pos_to_play
+;		}
+;	}
+;	abort $whenever_pos_in_scenario
+;		
+;	} else {
+;	$whenever_pos_in_scenario := {
+;		whenever ($pos_in_scenario == $pos_in_scenario)	{
+;			$position := $pos_in_scenario
+;		}
+;	}
+;		abort $whenever_pos_to_play
+;	}
+;}
+*/
+
+;------------------------------------------------------------------
+; TRAITEMENT DES DISCONTINUITES AUDIO (Crossfade...)
+;----------------------
+$activevoice := 1
+$inactivevoice := 2
+;---
+whenever ($disc)
+{
+	printAnte " --------- disc = 1 ! ---------"
+
+	AnteToSVP $VoiceName disc $activevoice 0.0
+	AnteToSVP $VoiceName disc $inactivevoice 1.0
+
+	$aux := $activevoice 
+	$activevoice := $inactivevoice
+	$inactivevoice := $aux
+}
+;------------------------------------------------------------------
+
+
+
+
+;------------------------------------------------------------------
+; BOUCLE PRINCIPALE "DES QUE NOUVEAU TEMPS..."
+;----------------------
+;;;;;
+AnteToSVP $VoiceName output_audio 0
+;;;;;
+$transpo := 0
+$lastbeataborted := 1
+$disc := 0
+$old_idx_in_memory := -1
+$old_transpo := -1
+;;;;$pos_in_impro := -1     ; position dans l'impro courante
+;$pos_in_scenario := -2  ; position dans le scénario
+;(pas de relation explicite entre les 2 : on peut commencer en retard, recaler à la main...)
+$loop_inadvance_whenever := 0
+
+
+$pos_in_scenario := 0
+;$position := 0
+
+
+;---
+;whenever ($pos_in_scenario == $pos_in_scenario)
+whenever ($pos_in_scenario == $pos_in_scenario)
+;whenever ($position == $position)
+{
+	@local $impro_segment
+	@local $idx_to_play_in_memory
+	@local $next_loop_idx
+	;@local $position
+
+
+	printAnte " \n\n ******* $pos_in_scenario :" $pos_in_scenario " with tempo = " ($pos_in_scenario.tempo) "$pos_to_play :" $pos_to_play  " with tempo = " ($pos_to_play.tempo) "// $pos_in_impro :" $pos_in_impro " ******* "
+	
+	;;;;;;;
+	$impro_segment := $SequenceImproOfVoice($pos_in_scenario)
+	;$impro_segment := $SequenceImproOfVoice($pos_to_play)
+	$idx_to_play_in_memory := $impro_segment[0]
+	$transpo := $impro_segment[1]
+	;;;;;;;
+
+	$loop_inadvance_whenever := $loop_inadvance_whenever - 1
+	
+	$disc := ($first || $old_idx_in_memory != ($idx_to_play_in_memory-1) || $lastbeataborted || $old_transpo != $transpo)
+	printAnte "$idx_to_play_in_memory :" $idx_to_play_in_memory "($old_idx_in_memory :" $old_idx_in_memory ") -->  $disc =" $disc
+
+	idx_in_memory $VoiceName $idx_to_play_in_memory
+	
+	$old_idx_in_memory := $idx_to_play_in_memory
+	$old_transpo := $transpo
+
+
+
+	if (@is_undef($idx_to_play_in_memory)) {
+			;printAnte " --------- Impro not yet generated --> ABORT PREVIOUS LOOP  ---------"
+			;$loop_inadvance_whenever := $loop_inadvance_whenever - 1
+			;;;;;
+			AnteToSVP $VoiceName output_audio 0
+			;;;;;
+			;abort $LoopBeat
+			if (!(@is_undef($LoopBeat))) {abort $LoopBeat}
+			$lastbeataborted := 1
+
+		} else {
+			
+			
+			if(!$disc) 
+			{
+				;;printAnte " --------- (pas disc, on laisse les loops tranquilles...) ---------"	
+			} else { 
+			; Si saut dans la mémoire
+
+				if ($loop_inadvance_whenever > 0) 
+				{
+					;printAnte " --------- $loop_inadvance_whenever = " $loop_inadvance_whenever ", ABORT PREVIOUS LOOP ET CURVE QUI AVAIT ETE LANCEE JUSTE AVANT LA DISC! ---------"
+					;$loop_inadvance_whenever := $loop_inadvance_whenever - 1
+					;;;;;
+					AnteToSVP $VoiceName output_audio 0
+					;;;;;
+					;abort $LoopBeat; @NOREC 
+					if (!(@is_undef($LoopBeat))) {abort $LoopBeat}
+				} else 	{
+					;printAnte " --------- $loop_inadvance_whenever = " $loop_inadvance_whenever ", ABORT PREVIOUS LOOP MAIS PAS CURVE POUR CROSSFADE ---------"
+					;$loop_inadvance_whenever := $loop_inadvance_whenever - 1
+					;;;;;
+					;;;;;;;;; AnteToSVP $VoiceName output_audio 0 ;;;; ???????
+					;;;;;
+					;abort $LoopBeat @NOREC 
+					if (!(@is_undef($LoopBeat))) {abort $LoopBeat @NOREC}
+				}
+				
+				AnteToSVP $VoiceName transpo $transpo  ;-----------------------
+				;$idx_start_play_in_memory_local := $idx_to_play_in_memory
+				$next_loop_idx := $idx_to_play_in_memory
+				$first_execution_of_loop := 1
+				;printAnte " --------- NEW LOOP ---------";" $voice " ---------"
+				$LoopBeat := { 
+					;loop 1 @sync $pos_to_play @target[3s] @conservative {
+					loop 1 @sync $pos_in_scenario @target[3s] @conservative {
+
+
+					@local $start_segment_in_memory, $end_segment_in_memory, $testDEF, $date_start_segment_in_memory, $date_end_segment_in_memory, $beatduration_current, $beatduration_in_memory
+					@local $graincurvesduration_frac_beat, $graincurvesduration_in_memory, $Xfade_frac_beat, $Xfadeduration_in_memory, $date_end_Xfade_in_memory, $voice, $scrub_start_pos, $x
+					@local $idx_start_play_in_memory_local, $ratio
+
+					$idx_start_play_in_memory_local := $next_loop_idx
+					$loop_inadvance_whenever := $loop_inadvance_whenever + 1
+					$lastbeataborted := 0
+					
+					if(!$disc)
+					{
+						;printAnte " --------- CONTINUOUS : ABORT PREVIOUS CURVE POUR NE PAS FAIRE XFADE --------- "
+						;;;;;
+						AnteToSVP $VoiceName output_audio 0
+						;;;;;
+						; abort $CurveBeat ; removed gn160606
+					}
+
+					$start_segment_in_memory := $MemoryOfVoice($idx_start_play_in_memory_local)
+					$end_segment_in_memory := $MemoryOfVoice($idx_start_play_in_memory_local + 1)
+
+					$testDEF := (!(@is_undef($start_segment_in_memory)) && !(@is_undef($end_segment_in_memory)))
+
+					if ( !$testDEF )	
+						{
+							;printAnte " --------- This segment does not exist in the buffer  --> abort $LoopBeatLabelOOP --------- "
+							;;;;;
+							AnteToSVP $VoiceName output_audio 0
+							;;;;;
+							$lastbeataborted := 1
+							;abort $LoopBeat
+							if (!(@is_undef($LoopBeat))) {abort $LoopBeat}
+							 
+						} else {
+							;printAnte " --------- (the segment exists in the buffer...) --------- "
+
+							$date_start_segment_in_memory := $start_segment_in_memory[0]
+							$date_end_segment_in_memory := $end_segment_in_memory[0] -1	
+							
+							;Current beat durations values
+							$beatduration_current := 60000/($pos_in_scenario.tempo)
+							$beatduration_in_memory := ($date_end_segment_in_memory - $date_start_segment_in_memory)
+							$ratio := $beatduration_in_memory / $beatduration_current
+							
+							;Equivalent durations current tempo / tempo in the memory for Grain
+							$graincurvesduration_frac_beat := ($graincurvesduration/ $beatduration_current)
+							$graincurvesduration_in_memory := (($graincurvesduration / $beatduration_current)*$beatduration_in_memory)
+
+							;Equivalent durations current tempo / tempo in the memory for Xfade
+							$Xfade_frac_beat := ($Xfadeduration / $beatduration_current)
+							$Xfadeduration_in_memory := (($Xfadeduration / $beatduration_current)*$beatduration_in_memory)
+							$date_end_Xfade_in_memory := $date_end_segment_in_memory + $Xfadeduration_in_memory
+							
+							;Update voices and next idxs
+							$voice := $activevoice						
+							$next_loop_idx := $idx_start_play_in_memory_local + 1
+							
+							;printAnte " =========  PLAY FROM " $date_start_segment_in_memory "TO " $date_end_segment_in_memory "PLAYER" $voice " THEN Xfade ->" ($date_end_segment_in_memory + $Xfadeduration_in_memory) "========= "
+							$scrub_start_pos := $date_start_segment_in_memory
+							;;;;;
+							AnteToSVP $VoiceName output_audio 1
+							;;;;;
+							;curve C @sync $pos_in_scenario @target[3s] @conservative @Grain := 0.05s @Action := {group{AnteToSVP $VoiceName scrubPos $voice $x ;-----------------------
+							AnteToSVP $VoiceName transpo $voice $transpo  ;-----------------------
+
+
+							idx-in-memory-ratio $VoiceName $idx_start_play_in_memory_local $date_start_segment_in_memory $ratio
+							
+							AnteToSVP $VoiceName beatScrubPos $voice $date_start_segment_in_memory $ratio ; new mode
+							;Modif gilbert
+
+							; remove curvebeat gn 160606
+							/*
+							$CurveBeat := { 
+								;curve C @sync $pos_to_play @target[3s] @conservative @Grain := ($graincurvesduration)ms @Action := {group {
+								curve C @sync $pos_in_scenario @target[3s] @conservative @Grain := ($graincurvesduration)ms @Action := {group {
+																							printAnte "[Debut iter curve], $scrub_start_pos = " $scrub_start_pos ", $x = " $x
+																							if ( $scrub_start_pos < $date_end_segment_in_memory )	
+																							{
+																								;printAnte "((voice " $voice "["$date_start_segment_in_memory "-> " $date_end_segment_in_memory"-> "($date_end_segment_in_memory + $Xfadeduration_in_memory)"]" " : PLAY, " $scrub_start_pos "-> " $x  " ))" 
+																							} else {
+																								;printAnte "((voice " $voice "["$date_start_segment_in_memory "-> " $date_end_segment_in_memory"-> "($date_end_segment_in_memory + $Xfadeduration_in_memory)"]" " : FADEOUT, " $scrub_start_pos "-> " $x  " ))"
+																							}
+																							AnteToSVP $VoiceName scrubPos $voice ($scrub_start_pos + $delay)
+																							AnteToSVP $VoiceName scrubPos $voice ($x + $delay) $graincurvesduration
+																							$scrub_start_pos := $x
+																							printAnte "[Fin iter curve], next-$scrub_start_pos = " $scrub_start_pos
+																						}
+																					} { $x {
+																							{($date_start_segment_in_memory + $graincurvesduration_in_memory)}
+																							1.0 {($date_end_segment_in_memory + $graincurvesduration_in_memory)}
+																							($Xfadeduration)ms {($date_end_segment_in_memory + $Xfadeduration_in_memory + $graincurvesduration_in_memory)}
+																							}
+																						}
+												};fin expr curve
+												*/
+					};fin else testdef
+				};fin loop			
+			};fin expr loop
+		};fin else disc
+	};fin else @is_undef($idx_to_play_in_memory)
+};fin else whenever $pos_in_scenario
+};fin procdef
+;------------------------------------------------------------------
+
+whenever ($play == 1)
+{ 
+	@local $cpt
+
+printAnte "_________PLAY : ON_________"
+
+if ($last_length_scenario !=0) {
+	$Scenario := MAP{}
+	$SequenceImpro1 := MAP{}
+	$SequenceImpro2 := MAP{}
+	$SequenceImpro3 := MAP{}; Chaque segment : tab [indice à jouer, transposition à appliquer]
+	;$length_scenario := $length_scenario	
+
+	$cpt := 0
+	loop BuildSequences 0
+		{
+			;SEQUENCE IMPRO PAR DEFAUT
+			$SequenceImpro1 := @add_pair($SequenceImpro1,$cpt, tab[($cpt - 4),0])
+			$SequenceImpro2 := @add_pair($SequenceImpro2,$cpt, tab[($cpt - 4),0])
+			$SequenceImpro3 := @add_pair($SequenceImpro3,$cpt, tab[($cpt - 4),0])
+			;SCENARIO PAR DEFAUT
+			$Scenario := @add_pair($Scenario,$cpt, "label")
+
+			$cpt := $cpt + 1
+		} until ( $cpt >= $last_length_scenario)
+
+ 
+	if ($printimproinfo) 
+		{
+			printAnte "______Default sequences built again______"
+			printAnte "$Scenario :" $Scenario 
+			printAnte "$SequenceImpro :" $SequenceImpro
+		}
+	}
+
+	$currentVoice1 := ::SetFIXEDVoice("Voice1", $SequenceImpro1, $online_memory)
+	$currentVoice2 := ::SetVoice("Voice2", $SequenceImpro2, $online_memory)
+	$currentVoice3 := ::SetVoice("Voice3", $SequenceImpro3, $online_memory)
+	$currentVoice1.$delay := $delay_online
+	$currentVoice2.$delay := $delay_online
+	$currentVoice3.$delay := $delay_online
+
+	if ($printimproinfo) 
+		{
+			printAnte "______Processes launched______"
+			printAnte "$Scenario :" $Scenario 
+			printAnte "$SequenceImpro :" $SequenceImpro
+		}
+
+}
+
+whenever ($play == 0)
+{ 
+
+	printAnte "_________PLAY : OFF_________"
+
+	AnteToSVP "Voice1" output_audio 0
+	AnteToSVP "Voice2" output_audio 0
+	AnteToSVP "Voice3" output_audio 0
+	
+	abort $currentVoice1
+	abort $currentVoice2
+	abort $currentVoice3
+
+
+	if ($printimproinfo) 
+		{
+			printAnte "______Processes aborted______"
+		}
+
+	;$segmented_memory := MAP{}
+
+
+}
+
+
+;::SetVoice("Voice2", $SequenceImpro2)
+;::SetVoice("Voice3", $SequenceImpro3)
+
+;ACCES A LA VARIABLE LOCALE
+;printAnte TEST ($currentVoice.$SequenceImproOfVoice)
+
+/*whenever ($new_sequence_impro)
+{
+
+	$SequenceImpro := (antescoto::playstring($new_sequence_impro))
+	let $currentVoice.$SequenceImproOfVoice := antescoto::playstring($new_sequence_impro)
+	
+)
+*/
+
+
+$date_beginning_buffer := -1
+whenever ($startrecordbuffer)
+{
+	$date_beginning_buffer := $NOW
+
+}
+
+
+
+;------------------------------------------------------------------
+; SEGMENTATION ONLINE DES ENTREES (AUDIO OU NON...)
+;----------------------
+; segmented_memory  
+; key -> data :
+; Position dans impro -> [date dans buffer, label, position dans scenario]
+;----------------------
+$first := 1
+$new_date_seg_buff := -1
+$pos_in_scenario := 0
+$pos_to_play := 0
+;---
+whenever ($new_posinscenario_datesegbuff)
+{
+	
+	;printAnte "   "
+	;printAnte "   "
+	;printAnte "------"
+	
+	;-VERSIONSANSTRANSPORT
+	;$new_date_seg_buff := $new_posinscenario_datesegbuff[1]
+	if ($date_beginning_buffer > -1) {
+		$new_date_seg_buff := ($NOW - $date_beginning_buffer)*1000
+	} else {
+		$new_date_seg_buff := -1
+	}
+	;-VERSIONSANSTRANSPORT
+	$new_pos_in_scenario := $new_posinscenario_datesegbuff[0]
+	$pos_in_scenario := $new_pos_in_scenario
+
+	POSINSCENARIOBYANTE $pos_in_scenario
+	idx-in-scenario-learning $pos_in_scenario
+
+	
+	if ($first == 1) {
+		$pos_in_impro := $new_pos_in_scenario 
+	} else {
+		;$buffer_beats := MAP{}
+		$pos_in_impro := $pos_in_impro + 1
+	}
+	$first := 0
+	idx-in-scenario-learning $pos_in_impro $pos_in_scenario $new_date_seg_buff
+
+	
+	/*Convention : tab [posinscenario, datesegbuff], 
+	with datesegbuff = -1 when offline (no online buffer to segment)*/
+	if ($new_date_seg_buff > -1) {
+		;$label_new_pos := $Scenario[$new_pos_in_scenario]
+		$label_new_pos := $Scenario($new_pos_in_scenario)
+	
+		$new_segment := tab[$new_date_seg_buff, $label_new_pos, $new_pos_in_scenario]
+
+		$online_memory := @add_pair($online_memory,$pos_in_impro,$new_segment)
+		
+		printAnte "ENREGISTRE SEGMENT [" $new_segment "]  POUR POS_IN_IMPRO " $pos_in_impro
+	}
+	
+	/*$pos_in_scenario := $new_pos_in_scenario
+	;"Reveille" le whenever défini plus bas.*/
+}
+;------------------------------------------------------------------
+
+
+;==================================================================================================================
+;==================================================================================================================
+; SAVE & LOAD ***MEMORY***
+;==================================================================================================================
+;==================================================================================================================
+
+@proc_def SendMap($m, $slot, $idxInTab)
+{
+	$i := 0
+	$s := ""
+	forall $k, $v in $m {
+		
+		if ($idxInTab > -1) {
+			if ($idxInTab == 1) {$s:= $s+(" "+"\""+($v[$idxInTab])+"\"")} else {$s:= $s+(" "+($v[$idxInTab]))}
+
+			
+		} else {
+			$s:= $s+(" "+($v))
+		}
+
+	
+			AnteToSave (""+$slot) $s
+	
+
+	}
+}
+
+
+
+whenever ($save_annotations)
+{
+	::SendMap($online_memory,"labels",1)
+	::SendMap($online_memory,"dates",0)
+	::SendMap($online_memory,"pos_in_scenario",2)	
+	AnteToSave "last_temposession" $tempovar_pos_to_play
+	$play := 0
+}
+
+
+
+
+;==================================================================================================================
+;==================================================================================================================;==================================================================================================================
+;==================================================================================================================
+$cpt_load_memory_Voice1 := 0
+$next_pos_to_load_in_memory_Voice1 := 0
+
+whenever ($load_pos_in_scenario_Voice1)
+{
+	$cpt_load_memory_Voice1 := $cpt_load_memory_Voice1 + 1
+	printAnte "LOADED $load_pos_in_scenario" $load_pos_in_scenario
+	
+}
+whenever ($load_labels_Voice1)
+{
+	$cpt_load_memory_Voice1 := $cpt_load_memory_Voice1 + 1
+	printAnte "LOADED $load_labels" $load_labels
+}
+whenever ($load_dates_Voice1)
+{
+	$cpt_load_memory_Voice1 := $cpt_load_memory_Voice1 + 1
+	printAnte "LOADED $load_dates" $load_dates
+}
+
+whenever ($cpt_load_memory_Voice1 == 3)
+{
+	@local $posi, $p
+	
+	$loaded_memory_Voice1 := MAP{}
+
+	$currentVoice1.$delay := $delay_offline
+
+	$posi := $next_pos_to_load_in_memory_Voice1
+	forall $p in $load_pos_in_scenario_Voice1
+	{
+		$loaded_memory_segment_Voice1 := tab[($load_dates_Voice1[($posi - $next_pos_to_load_in_memory_Voice1)]), ($load_labels_Voice1[($posi - $next_pos_to_load_in_memory_Voice1)]), $p]
+		$loaded_memory_Voice1 := @add_pair($loaded_memory_Voice1,$posi,$loaded_memory_segment_Voice1)
+		$posi := $posi + 1
+	}
+
+	;$next_pos_to_load_in_memory_Voice1 := $posi
+	$next_pos_to_load_in_memory_Voice1 := 0
+
+	$currentVoice1.$MemoryOfVoice := $loaded_memory_Voice1
+		
+	$cpt_load_memory_Voice1 := 0
+
+	printAnte "MEMORY Voice1 LOADED" ($currentVoice1.$MemoryOfVoice)
+
+}
+;==================================================================================================================
+$cpt_load_memory_Voice2 := 0
+$next_pos_to_load_in_memory_Voice2 := 0
+whenever ($load_pos_in_scenario_Voice2)
+{
+	$cpt_load_memory_Voice2 := $cpt_load_memory_Voice2 + 1
+	;printAnte "LOADED $load_pos_in_scenario" $load_pos_in_scenario
+	
+}
+whenever ($load_labels_Voice2)
+{
+	$cpt_load_memory_Voice2 := $cpt_load_memory_Voice2 + 1
+	;printAnte "LOADED $load_labels" $load_labels
+}
+whenever ($load_dates_Voice2)
+{
+	$cpt_load_memory_Voice2 := $cpt_load_memory_Voice2 + 1
+	;printAnte "LOADED $load_dates" $load_dates
+}
+
+whenever ($cpt_load_memory_Voice2 == 3)
+{
+	@local $posi, $p
+	
+	$loaded_memory_Voice2 := MAP{}
+	
+	$currentVoice2.$delay := $delay_offline
+
+	$posi := $next_pos_to_load_in_memory_Voice2
+	forall $p in $load_pos_in_scenario_Voice2
+	{
+		$loaded_memory_segment_Voice2 := tab[($load_dates_Voice2[($posi - $next_pos_to_load_in_memory_Voice2)]), ($load_labels_Voice2[($posi - $next_pos_to_load_in_memory_Voice2)]), $p]
+		$loaded_memory_Voice2 := @add_pair($loaded_memory_Voice2,$posi,$loaded_memory_segment_Voice2)
+		$posi := $posi + 1
+	}
+
+	;$next_pos_to_load_in_memory_Voice1 := $posi
+	$next_pos_to_load_in_memory_Voice2 := 0
+
+	$currentVoice2.$MemoryOfVoice := $loaded_memory_Voice2
+		
+	$cpt_load_memory_Voice2 := 0
+
+	printAnte "MEMORY Voice2 LOADED" ($currentVoice2.$MemoryOfVoice)
+
+}
+;==================================================================================================================
+$cpt_load_memory_Voice3 := 0
+$next_pos_to_load_in_memory_Voice3 := 0
+whenever ($load_pos_in_scenario_Voice3)
+{
+	$cpt_load_memory_Voice3 := $cpt_load_memory_Voice3 + 1
+	;printAnte "LOADED $load_pos_in_scenario" $load_pos_in_scenario
+	
+}
+whenever ($load_labels_Voice3)
+{
+	$cpt_load_memory_Voice3 := $cpt_load_memory_Voice3 + 1
+	;printAnte "LOADED $load_labels" $load_labels
+}
+whenever ($load_dates_Voice3)
+{
+	$cpt_load_memory_Voice3 := $cpt_load_memory_Voice3 + 1
+	;printAnte "LOADED $load_dates" $load_dates
+}
+
+whenever ($cpt_load_memory_Voice3 == 3)
+{
+	@local $posi, $p
+	
+	$loaded_memory_Voice3 := MAP{}
+
+	$currentVoice3.$delay := $delay_offline
+
+	$posi := $next_pos_to_load_in_memory_Voice3
+	forall $p in $load_pos_in_scenario_Voice3
+	{
+		$loaded_memory_segment_Voice3 := tab[($load_dates_Voice3[($posi - $next_pos_to_load_in_memory_Voice3)]), ($load_labels_Voice3[($posi - $next_pos_to_load_in_memory_Voice3)]), $p]
+		$loaded_memory_Voice3 := @add_pair($loaded_memory_Voice3,$posi,$loaded_memory_segment_Voice3)
+		$posi := $posi + 1
+	}
+
+	;$next_pos_to_load_in_memory_Voice1 := $posi
+	$next_pos_to_load_in_memory_Voice3 := 0
+
+	$currentVoice3.$MemoryOfVoice := $loaded_memory_Voice3
+		
+	$cpt_load_memory_Voice3 := 0
+
+	printAnte "MEMORY Voice3 LOADED" ($currentVoice3.$MemoryOfVoice)
+
+}
+;==================================================================================================================
+;==================================================================================================================
+; SAVE & LOAD Scenario and ***IMPRO***
+;==================================================================================================================
+;==================================================================================================================
+
+whenever ($ModifScenario0)
+{
+
+printAnte "PREVIOUS SCENARIO :" $Scenario
+
+	forall $k, $v in $ModifScenario0 {
+			$Scenario := @add_pair($Scenario,$k, $v)
+		
+	}
+
+printAnte "NEW SCENARIO :" $Scenario
+
+}
+
+
+whenever ($ModifSequenceImproOfVoice1)
+{
+
+printAnte "VOICE 1 : PREVIOUS IMPRO :" $currentVoice1.$SequenceImproOfVoice
+
+	forall $k, $v in $ModifSequenceImproOfVoice1 {
+			$currentVoice1.$SequenceImproOfVoice := @add_pair(($currentVoice1.$SequenceImproOfVoice),$k, $v)
+		
+	}
+
+printAnte "VOICE 1 : NEW IMPRO :" $currentVoice1.$SequenceImproOfVoice
+
+}
+
+whenever ($ModifSequenceImproOfVoice2)
+{
+
+printAnte "VOICE 2 : PREVIOUS IMPRO :" $currentVoice2.$SequenceImproOfVoice
+
+	forall $k, $v in $ModifSequenceImproOfVoice2 {
+			$currentVoice2.$SequenceImproOfVoice := @add_pair(($currentVoice2.$SequenceImproOfVoice),$k, $v)
+		
+	}
+
+printAnte "VOICE 2 : NEW IMPRO :" $currentVoice2.$SequenceImproOfVoice
+
+}
+whenever ($ModifSequenceImproOfVoice3)
+{
+
+printAnte "VOICE 3 : PREVIOUS IMPRO :" $currentVoice3.$SequenceImproOfVoice
+
+	forall $k, $v in $ModifSequenceImproOfVoice3 {
+			$currentVoice3.$SequenceImproOfVoice := @add_pair(($currentVoice3.$SequenceImproOfVoice),$k, $v)
+		
+	}
+
+printAnte "VOICE 3 : NEW IMPRO :" $currentVoice3.$SequenceImproOfVoice
+
+}
