@@ -1,0 +1,26 @@
+============================================================================================
+ImproteK 5.0 (research prototype) contains :
+- generative processes in a modular CommonLisp library to use in the OpenMusic environment,
+- an audio sequencer / renderer (in Max) dedicated to live performance.
+============================================================================================
+*** This version is a snapshot of the current version whose development is ongoing ***
+*** Future evolutions, successive releases : see https://forge.ircam.fr/p/ImproteK ***
+
+
+/!\ You must have the permission to write in the directory "3-BuildCorpus" and its subfolders, especially "out". /!\
+
+
+
+(0- Download Python: https://www.python.org/downloads/release/python-350/)
+1- Get/write/... your annotations files following the model of "Radioactivity" in the directory "in"
+2- In "ParseAnnotationFiles_tutorial.py" modify
+	- the input path
+	- the tempo
+3- Run "ParseAnnotationFiles_tutorial.py":
+	1) Open a terminal in "3-BuildCorpus":
+		- open a terminal
+		- type "cd " then drop the directory "3-BuildCorpus" in the terminal
+		- the absolute path should appear
+		- type ENTER
+	2) "python ParseAnnotationFiles_tutorial.py" + "ENTER"
+4- The formatted memory (json version + lisp version) should appear in the directory "out"
