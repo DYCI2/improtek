@@ -1,0 +1,4 @@
+; OM File Header - Saved 2016/06/03 14:53:44
+; (6.090012 :lisp (om-make-point 118 60) (om-make-point 50 50) (om-make-point 500 400) "" 124 0 "2016/06/03 14:53:44" "2016/06/03 14:53:44")
+; End File Header
+(in-package :om)(load-lib-for (quote nil))(setf *om-current-persistent* (om-load-lisp-patch "LispFunction" 6.090012 ""))

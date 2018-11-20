@@ -1,0 +1,57 @@
+; January 2017
+; Examples of scenario defined by Marta Gentilucci on the following alphabet
+
+
+
+#|
+a Tenuto
+
+b Ribattuto long / c Ribattuto short
+z Ribattuto disto long / y Ribattuto disto short
+
+d Agilità long / e Agilità short
+f silence
+
+x Articulated vowels long / w Articulated vowels short
+
+v Glottis' staccato
+
+u Grumble disto low long / v Grumble disto low short
+q Grumble disto med long / p Grumble disto med short
+s Grumble disto high long / r Grumble disto high short
+
+o Distortion long / n Distortion short
+|#
+
+
+(in-package :om)
+(format *om-stream* "loading Scenarios-Voice~%")
+
+
+
+;AK_Phrases_ribattuti, no pulse, "BPM"=17
+;--------------------------------------------------------------------------------------------------------------------
+
+(setf AK_Phrases_ribattuti_grid
+      '((c b 1) (c e 1) (c e 1) (c a 1) (c e 1) (c a 1) (c e 1) (c e 1) (c e 1) (c e 1) (c a 1) (c b 1) (c e 1) (c a 1) (c e 1) (c e 1) (c e 1) (c e 1) (c a 1) (c e 1) (c e 1) (c e 1) (c a 1) (c a 1) (c e 1) (c e 1) (c a 1) (c e 1) (c e 1) (c e 1) (c e 1) (c e 1) (c f 1) (c a 1) (c e 1) (c e 1) (c e 1) (c e 1) (c a 1) (c b 1) (c e 1) (c e 1) (c a 1) (c e 1) (c e 1) (c e 1) (c d 1) (c f 1) (c a 1) (c a 1) (c e 1) (c e 1) (c e 1) (c f 1) (c a 1) (c a 1) (c e 1) (c e 1) (c e 1) (c d 1) (c f 1) (c d 1) (c e 1) (c d 1) (c b 1) (c f 1) (c b 1) (c b 1) (c e 1) (c a 1) (c e 1) (c b 1) (c b 1) (c b 1) (c b 1) (c b 1) (c b 1) (c b 1) (c b 1) (c b 1) (c b 1) (c c 1) (c c 1) (c c))
+
+       AK_Phrases_ribattuti_beatdur (bpmtobeatdur 17))
+(setf AK_Phrases_ribattuti_tune (make-instance 'tune :grid AK_Phrases_ribattuti_grid :beatduration 
+AK_Phrases_ribattuti_beatdur :tunename "AK_Phrases_ribattuti" :NbBeatsPerMeasure 1))
+(setf (gethash '"AK_Phrases_ribattuti" *available-grids*) AK_Phrases_ribattuti_tune)
+
+
+
+
+;MP_impro-mix, no pulse, "BPM"=14
+;--------------------------------------------------------------------------------------------------------------------
+
+(setf MP_impro-mix_grid
+      '((c z 1) (c z 1) (c y 1) (c u 1) (c q 1) (c q 1) (c q 1) (c p 1) (c q 1) (c x 1) (c w 1) (c w 1) (c w 1) (c a 1) (c x 1) (c a 1) (c x 1) (c w 1) (c o 1) (c y 1) (c z 1) (c z 1) (c y 1) (c z 1) (c z 1) (c w 1) (c w 1) (c w 1) (c w 1) (c w 1) (c w 1) (c w 1) (c w 1) (c w 1) (c w 1) (c w 1) (c w 1) (c z 1) (c z 1) (c z 1) (c z 1) (c z 1) (c z 1) (c z 1) (c w 1) (c w 1) (c w 1) (c w 1) (c z 1) (c o 1) (c o 1) (c o 1) (c n 1) (c n 1) (c n 1) (c n 1) (c n 1) (c n 1) (c n 1) (c o 1) (c t 1) (c t 1) (c u 1) (c t 1) (c t 1) (c t 1) (c t 1) (c t 1) (c t 1) (c t 1) (c t 1) (c t 1) (c t 1) (c t 1) (c t 1) (c t 1) (c t 1) (c u 1) (c u 1) (c t 1) (c t 1) (c u 1) (c u 1) (c t 1) (c t 1) (c t 1) (c t 1) (c t 1) (c t 1) (c t 1) (c t 1) (c t 1) (c u 1) (c t 1) (c t 1) (c t 1) (c v 1) (c t 1) (c v 1) (c v 1) (c v 1) (c v 1) (c v 1) (c v 1) (c v 1) (c v 1) (c v 1) (c v 1) (c v 1) (c v 1) (c v 1) (c v 1) (c v 1) (c v 1) (c v 1) (c v 1) (c v 1) (c v 1) (c v 1) (c v 1) (c v 1) (c v 1) (c v 1) (c v 1) (c v 1) (c v 1) (c v 1) (c v 1) (c v 1) (c v 1) (c v 1) (c v 1) (c v 1) (c v 1) (c v 1) (c v 1) (c v 1) (c v 1) (c v 1) (c v 1) (c v 1) (c v 1) (c v 1) (c v 1) (c v 1) (c v 1) (c u 1) (c u 1) (c u 1) (c t 1) (c u 1) (c u 1) (c s 1) (c r 1) (c r 1) (c t 1) (c t 1) (c t 1) (c r 1) (c r 1) (c s 1) (c s 1) (c s 1) (c o 1) (c r 1) (c r 1) (c r 1) (c r 1) (c s 1) (c u 1) (c r 1) (c s 1))
+
+       MP_impro-mix_beatdur (bpmtobeatdur 14))
+(setf MP_impro-mix_tune (make-instance 'tune :grid AMP_impro-mix_grid :beatduration 
+MP_impro-mix_beatdur :tunename "MP_impro-mix" :NbBeatsPerMeasure 1))
+(setf (gethash '"MP_impro-mix" *available-grids*) MP_impro-mix_tune)
+
+
